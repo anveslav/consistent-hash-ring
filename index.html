@@ -177,12 +177,14 @@
             white-space: nowrap;
         }
         
-        .hash-line {
+        .hash-arrow {
             position: absolute;
-            width: 2px;
-            background: rgba(255,255,255,0.5);
-            transform-origin: top center;
-            z-index: 5;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid white;
+            z-index: 51;
             pointer-events: none;
         }
         
@@ -398,16 +400,16 @@
 <body>
     <div class="container">
         <h1>RabbitMQ Consistent Hash Exchange</h1>
-        <p class="subtitle">Visual Learning Tool - Bucket-based Distribution</p>
+        <p class="subtitle">URL Routing to Message Queues</p>
         
         <div class="algorithm-info">
-            <h4>🐰 Understanding RabbitMQ's Consistent Hash Exchange:</h4>
+            <h4>🐰 How RabbitMQ Consistent Hash Exchange Works:</h4>
             <ul>
-                <li><strong>Buckets:</strong> The hash ring is divided into a fixed number of buckets (points on the ring)</li>
-                <li><strong>Weight:</strong> Determines how many buckets each queue gets (50/50 = equal distribution)</li>
-                <li><strong>Routing:</strong> hash(routing_key) % total_buckets → finds the bucket → routes to owning queue</li>
-                <li><strong>Example:</strong> With 20 buckets and weights 50/50, each queue gets 10 buckets</li>
-                <li><strong>Production:</strong> RabbitMQ uses 1,048,573 buckets for near-perfect distribution</li>
+                <li><strong>Routing Keys:</strong> Each URL/domain is used as a routing key for message distribution</li>
+                <li><strong>Queues:</strong> Messages are distributed across multiple queues based on hash of routing key</li>
+                <li><strong>Weight:</strong> Queue capacity - higher weight = processes more messages</li>
+                <li><strong>Hash Ring:</strong> hash(routing_key) % total_buckets → determines which queue gets the message</li>
+                <li><strong>Consistency:</strong> Same routing key always routes to the same queue (useful for ordering)</li>
             </ul>
         </div>
         
@@ -419,7 +421,7 @@
                     <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Hash Ring</div>
                     <div style="font-size: 14px;">
                         <span id="bucketCount">0 Buckets</span><br>
-                        <span id="currentSelection" style="font-size: 12px; margin-top: 5px; display: block;">Click routing key above</span>
+                        <span id="currentSelection" style="font-size: 12px; margin-top: 5px; display: block;">Click URL above</span>
                     </div>
                 </div>
                 
@@ -445,7 +447,7 @@
                 </div>
             </div>
             
-            <h3 style="margin-top: 20px; margin-bottom: 10px;">⚖️ Queue Weights (Relative Distribution):</h3>
+            <h3 style="margin-top: 20px; margin-bottom: 10px;">⚖️ Queue Weights (Message Distribution):</h3>
             
             <div class="queues-container" id="queuesContainer"></div>
             
@@ -483,7 +485,6 @@
             window.buckets = [];
             window.currentHashPosition = null;
             window.currentLabel = null;
-            window.currentLine = null;
             
             window.routingKeys = [
                 'google.com', 'youtube.com', 'facebook.com', 'amazon.com', 
@@ -495,8 +496,8 @@
             // Initialize queues
             window.initQueues = function() {
                 window.queues = [
-                    { name: 'server.us-east', weight: 50, color: window.colors[0] },
-                    { name: 'server.eu-west', weight: 50, color: window.colors[1] }
+                    { name: 'queue.orders', weight: 50, color: window.colors[0] },
+                    { name: 'queue.analytics', weight: 50, color: window.colors[1] }
                 ];
             };
             
@@ -700,10 +701,10 @@
                     node.style.top = y + 'px';
                     node.style.background = bucket.color;
                     node.style.borderColor = 'white';
-                    node.title = 'Bucket ' + i + ' → ' + bucket.queueName;
+                    node.title = 'Bucket ' + i + ' - ' + bucket.queueName;
                     
                     if (window.TOTAL_BUCKETS <= 30) {
-                        node.textContent = i;
+                        node.textContent = i.toString();
                     }
                     
                     ring.appendChild(node);
@@ -748,6 +749,7 @@
                     var btn = document.createElement('button');
                     btn.className = 'control-btn';
                     btn.textContent = key;
+                    btn.title = 'Hash and route ' + key + ' to a server';
                     btn.addEventListener('click', function() { window.showExample(key, btn); });
                     container.appendChild(btn);
                 });
@@ -759,7 +761,7 @@
                 container.appendChild(clearBtn);
             };
             
-            // Show example
+            // Show example without arrow
             window.showExample = function(routingKey, clickedElement) {
                 window.clearExample();
                 
@@ -775,16 +777,7 @@
                 var x = centerX + radius * Math.cos(angleRad);
                 var y = centerY + radius * Math.sin(angleRad);
                 
-                var line = document.createElement('div');
-                line.className = 'hash-line';
-                line.style.height = radius + 'px';
-                line.style.left = (centerX - 1) + 'px';
-                line.style.top = centerY + 'px';
-                line.style.transform = 'rotate(' + angle + 'deg)';
-                line.style.transformOrigin = 'top center';
-                document.getElementById('ring').appendChild(line);
-                window.currentLine = line;
-                
+                // Add hash position marker
                 var hashEl = document.createElement('div');
                 hashEl.className = 'hash-position';
                 hashEl.style.left = x + 'px';
@@ -794,6 +787,7 @@
                 document.getElementById('ring').appendChild(hashEl);
                 window.currentHashPosition = hashEl;
                 
+                // Add label
                 var labelEl = document.createElement('div');
                 labelEl.className = 'hash-label';
                 labelEl.textContent = routingKey;
@@ -810,19 +804,22 @@
                 document.getElementById('ring').appendChild(labelEl);
                 window.currentLabel = labelEl;
                 
+                // Update info
                 document.getElementById('currentSelection').innerHTML = 
                     '<strong style="font-size: 14px;">' + routingKey + '</strong><br>' +
-                    '<span style="color: ' + result.bucket.color + ';">→ ' + result.bucket.queueName + '</span><br>' + 
-                    '<small>Hash: ' + result.hash + '<br>' +
+                    '<small>URL Hash: ' + result.hash + '<br>' +
                     result.hash + ' % ' + window.TOTAL_BUCKETS + ' = Bucket ' + result.bucketIndex + '</small>';
                 
-                var targetNode = document.querySelectorAll('.bucket-node')[result.bucketIndex];
+                // Find the correct bucket node by its data attribute
+                var targetNode = document.querySelector('[data-bucket-index="' + result.bucketIndex + '"]');
                 if (targetNode) {
                     targetNode.style.transform = 'scale(2)';
                     targetNode.style.zIndex = '150';
                     targetNode.style.border = '3px solid white';
+                    targetNode.style.boxShadow = '0 0 15px rgba(255,255,255,0.8)';
                 }
                 
+                // Style button
                 if (clickedElement) {
                     document.querySelectorAll('.control-btn').forEach(function(btn) {
                         btn.classList.remove('active');
@@ -845,12 +842,8 @@
                     window.currentLabel.remove();
                     window.currentLabel = null;
                 }
-                if (window.currentLine) {
-                    window.currentLine.remove();
-                    window.currentLine = null;
-                }
                 
-                document.getElementById('currentSelection').innerHTML = 'Click routing key above';
+                document.getElementById('currentSelection').innerHTML = 'Click URL above';
                 
                 document.querySelectorAll('.control-btn').forEach(function(btn) {
                     btn.classList.remove('active');
@@ -858,10 +851,11 @@
                     btn.style.borderColor = '';
                 });
                 
-                document.querySelectorAll('.bucket-node').forEach(function(node) {
+                document.querySelectorAll('.bucket-node').forEach(function(node, index) {
                     node.style.transform = '';
                     node.style.zIndex = '10';
                     node.style.border = '2px solid white';
+                    node.style.boxShadow = '';
                 });
             };
             
@@ -888,7 +882,7 @@
                         '<div style="font-size: 12px;">Weight:</div>' +
                         '<input type="number" class="weight-input weight-input-' + i + '" value="' + queue.weight + '" min="1" max="1000">' +
                         '<div class="queue-info">' +
-                            '<span style="color: ' + queue.color + ';">' + percent + '% of traffic</span>' +
+                            '<span style="color: ' + queue.color + ';">' + percent + '% of messages</span>' +
                             '<span style="color: rgba(255,255,255,0.7);">→ ' + actualBuckets + ' buckets</span>' +
                         '</div>' +
                         (window.queues.length > 1 ? '<button class="remove-queue remove-queue-' + i + '">×</button>' : '');
@@ -938,7 +932,7 @@
                 });
                 
                 var resultsHTML = '<div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 6px;">';
-                resultsHTML += '<h5 style="margin-top: 0; color: #4ecdc4;">Distribution Test (' + testCount + ' random keys)</h5>';
+                resultsHTML += '<h5 style="margin-top: 0; color: #4ecdc4;">Message Distribution Test (' + testCount + ' random routing keys)</h5>';
                 
                 window.queues.forEach(function(queue) {
                     var count = distribution[queue.name] || 0;
@@ -1034,9 +1028,10 @@
                 
                 // Show first example
                 setTimeout(function() {
+                    // Show first example with popular website
                     var firstBtn = document.querySelector('.control-btn');
                     if (firstBtn) {
-                        window.showExample('order.created', firstBtn);
+                        window.showExample('google.com', firstBtn);
                     }
                 }, 100);
             }
