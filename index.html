@@ -486,17 +486,17 @@
             window.currentLine = null;
             
             window.routingKeys = [
-                'order.created', 'payment.processed', 'user.login', 'item.shipped', 
-                'email.sent', 'notification.push', 'cache.invalidate', 'session.start',
-                'api.request', 'error.logged', 'metric.recorded', 'backup.completed',
-                'file.uploaded', 'task.queued', 'webhook.received', 'report.generated'
+                'google.com', 'youtube.com', 'facebook.com', 'amazon.com', 
+                'twitter.com', 'instagram.com', 'linkedin.com', 'reddit.com',
+                'netflix.com', 'apple.com', 'microsoft.com', 'wikipedia.org',
+                'github.com', 'stackoverflow.com', 'spotify.com', 'twitch.tv'
             ];
             
             // Initialize queues
             window.initQueues = function() {
                 window.queues = [
-                    { name: 'queue.orders', weight: 50, color: window.colors[0] },
-                    { name: 'queue.notifications', weight: 50, color: window.colors[1] }
+                    { name: 'server.us-east', weight: 50, color: window.colors[0] },
+                    { name: 'server.eu-west', weight: 50, color: window.colors[1] }
                 ];
             };
             
