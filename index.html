@@ -1,972 +1,1046 @@
-function testDistribution() {
-    // Тестируем распределение для множества случайных ключей
-    var testCount = 10000;
-    var distribution = {};
-    
-    // Инициализируем счетчики
-    queues.forEach(function(queue) {
-        distribution[queue.name] = 0;
-    });
-    
-    // Также тестируем реальные домены
-    var realDomains = [
-        'example.com', 'shop.store', 'my-site.net', 'store.co', 
-        'api.service', 'cdn.assets', 'blog.site', 'app.mobile',
-        'web.app', 'cloud.storage', 'data.analytics', 'user.portal',
-        'admin.panel', 'payment.gateway', 'mail.server', 'video.stream',
-        'game.server', 'iot.device', 'metrics.collector', 'cache.redis'
-    ];
-    
-    var domainDistribution = {};
-    queues.forEach(function(queue) {
-        domainDistribution[queue.name] = [];
-    });
-    
-    // Тестируем реальные домены
-    realDomains.forEach(function(domain) {
-        var hash = stableHash(domain);
-        var angle = hash % 360;
-        
-        var responsibleNode = findResponsibleNode(angle);
-        
-        if (responsibleNode) {
-            domainDistribution[responsibleNode.queueName].push(domain);
-        }
-    });
-    
-    // Генерируем случайные ключи для статистики
-    for (var i = 0; i < testCount; i++) {
-        var testKey = 'test-key-' + Math.random().toString(36).substring(7);
-        var hash = stableHash(testKey);
-        var angle = hash % 360;
-        
-        var responsibleNode = findResponsibleNode(angle);
-        
-        if (responsibleNode) {
-            distribution[responsibleNode.queueName]++;
-        }
-    }
-    
-    // Отображаем результаты
-    var resultsHTML = '<div style="display<!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<title>Consistent Hash Ring</title>
-<style>
-body {
-    margin: 0;
-    padding: 20px;
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-}
-.container {
-    text-align: center;
-    max-width: 800px;
-    width: 100%;
-}
-h1 {
-    margin-bottom: 10px;
-    font-size: 2.2em;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
-.subtitle {
-    font-size: 1.1em;
-    margin-bottom: 20px;
-    opacity: 0.9;
-}
-.controls {
-    margin: 20px 0;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    max-width: 800px;
-    margin: 20px auto;
-}
-.control-btn {
-    background: rgba(255,255,255,0.2);
-    border: 2px solid rgba(255,255,255,0.3);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 15px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 12px;
-}
-.control-btn:hover {
-    background: rgba(255,255,255,0.3);
-    transform: translateY(-2px);
-}
-.control-btn.active {
-    background: #4ecdc4;
-    border-color: #4ecdc4;
-}
-.ring-container {
-    position: relative;
-    width: 400px;
-    height: 400px;
-    margin: 20px auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.ring {
-    position: relative;
-    width: 360px;
-    height: 360px;
-    border: 4px solid rgba(255,255,255,0.4);
-    border-radius: 50%;
-    background: rgba(0,0,0,0.2);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.2);
-}
-.virtual-node {
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-left: -4px;
-    margin-top: -4px;
-    transition: all 0.3s ease;
-    border: 2px solid;
-    box-shadow: 0 0 6px;
-}
-.virtual-node:hover {
-    transform: scale(1.5);
-    z-index: 100;
-}
-.center-info {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.8);
-    padding: 20px;
-    border-radius: 12px;
-    border: 2px solid rgba(255,255,255,0.3);
-    min-width: 150px;
-    font-size: 13px;
-}
-.hash-position {
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    margin-left: -7px;
-    margin-top: -7px;
-    border: 3px solid #fff;
-    z-index: 200;
-    transition: all 0.3s ease;
-}
-.hash-label {
-    position: absolute;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 10px;
-    font-weight: bold;
-    border: 2px solid;
-    z-index: 201;
-    transition: all 0.3s ease;
-}
-.distribution-controls {
-    background: rgba(255,255,255,0.1);
-    padding: 20px;
-    border-radius: 12px;
-    margin: 20px 0;
-    border: 2px solid rgba(255,255,255,0.2);
-}
-.queues-container {
-    max-height: 200px;
-    overflow-y: auto;
-    margin: 15px 0;
-}
-.queue-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 8px 0;
-    padding: 8px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-.queue-color {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.5);
-    flex-shrink: 0;
-}
-.queue-name {
-    font-weight: bold;
-    min-width: 80px;
-    font-size: 13px;
-}
-.weight-input {
-    background: rgba(255,255,255,0.2);
-    border: 2px solid rgba(255,255,255,0.3);
-    color: white;
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 13px;
-    width: 60px;
-    text-align: center;
-}
-.weight-input:focus {
-    outline: none;
-    border-color: #4ecdc4;
-    box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
-}
-.queue-percent {
-    min-width: 60px;
-    font-size: 12px;
-    color: rgba(255,255,255,0.8);
-}
-.remove-queue {
-    background: #ff6b6b;
-    border: none;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.3s ease;
-}
-.remove-queue:hover {
-    background: #ff5252;
-    transform: scale(1.1);
-}
-.add-queue-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 15px;
-    padding: 10px;
-    background: rgba(78, 205, 196, 0.1);
-    border-radius: 8px;
-    border: 2px dashed rgba(78, 205, 196, 0.3);
-}
-.add-queue-input {
-    background: rgba(255,255,255,0.2);
-    border: 2px solid rgba(255,255,255,0.3);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    width: 120px;
-}
-.add-queue-input:focus {
-    outline: none;
-    border-color: #4ecdc4;
-    box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
-}
-.add-queue-input::placeholder {
-    color: rgba(255,255,255,0.6);
-}
-.btn {
-    border: 2px solid;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 13px;
-    font-weight: bold;
-    margin: 5px;
-}
-.btn-primary {
-    background: #4ecdc4;
-    border-color: #4ecdc4;
-}
-.btn-primary:hover {
-    background: #44a08d;
-    border-color: #44a08d;
-    transform: translateY(-2px);
-}
-.btn-danger {
-    background: #e74c3c;
-    border-color: #e74c3c;
-}
-.btn-danger:hover {
-    background: #c0392b;
-    border-color: #c0392b;
-    transform: translateY(-2px);
-}
-.distribution-info {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 15px;
-    font-size: 12px;
-    flex-wrap: wrap;
-}
-.percentage {
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-weight: bold;
-    border: 1px solid;
-}
-.config-info {
-    background: rgba(0,0,0,0.3);
-    padding: 20px;
-    border-radius: 12px;
-    margin-top: 20px;
-    border: 2px solid rgba(255,255,255,0.2);
-    text-align: left;
-}
-.angle-marker {
-    position: absolute;
-    font-size: 11px;
-    color: rgba(255,255,255,0.7);
-    font-weight: bold;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>RabbitMQ Consistent Hash Exchange - Visual Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 1100px;
+            width: 100%;
+        }
+        
+        h1 {
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .algorithm-info {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: left;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        .algorithm-info h4 {
+            color: #4ecdc4;
+            margin-bottom: 10px;
+        }
+        
+        .algorithm-info ul {
+            margin-left: 20px;
+            line-height: 1.6;
+        }
+        
+        .controls {
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            max-width: 900px;
+        }
+        
+        .control-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            font-family: inherit;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .control-btn.active {
+            background: #4ecdc4;
+            border-color: #4ecdc4;
+        }
+        
+        .ring-container {
+            position: relative;
+            width: 450px;
+            height: 450px;
+            margin: 30px auto;
+        }
+        
+        .ring {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            border: 4px solid rgba(255,255,255,0.4);
+            border-radius: 50%;
+            background: rgba(0,0,0,0.2);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+            margin: 25px;
+        }
+        
+        .bucket-node {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-left: -8px;
+            margin-top: -8px;
+            border: 2px solid white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            font-size: 9px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .bucket-node:hover {
+            transform: scale(1.8);
+            z-index: 100;
+        }
+        
+        .hash-position {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 3px solid #fff;
+            z-index: 200;
+            transition: all 0.3s ease;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { 
+                transform: scale(1); 
+                box-shadow: 0 0 0 0 rgba(255,255,255,0.7); 
+            }
+            50% { 
+                transform: scale(1.1); 
+                box-shadow: 0 0 20px 10px rgba(255,255,255,0); 
+            }
+            100% { 
+                transform: scale(1); 
+                box-shadow: 0 0 0 0 rgba(255,255,255,0); 
+            }
+        }
+        
+        .hash-label {
+            position: absolute;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            border: 2px solid;
+            z-index: 201;
+            background: rgba(0,0,0,0.9);
+            white-space: nowrap;
+        }
+        
+        .hash-line {
+            position: absolute;
+            width: 2px;
+            background: rgba(255,255,255,0.5);
+            transform-origin: top center;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        .center-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            min-width: 180px;
+            font-size: 14px;
+            z-index: 10;
+        }
+        
+        .distribution-controls {
+            background: rgba(255,255,255,0.1);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 30px auto;
+            border: 2px solid rgba(255,255,255,0.2);
+            max-width: 1100px;
+        }
+        
+        .bucket-count-control {
+            background: rgba(78, 205, 196, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px solid rgba(78, 205, 196, 0.3);
+        }
+        
+        .bucket-slider {
+            width: 300px;
+            margin: 10px auto;
+        }
+        
+        .queues-container {
+            max-height: 250px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+        
+        .queue-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .queue-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.5);
+            flex-shrink: 0;
+        }
+        
+        .queue-name {
+            font-weight: bold;
+            min-width: 120px;
+            font-size: 14px;
+            text-align: left;
+        }
+        
+        .weight-input {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 80px;
+            text-align: center;
+        }
+        
+        .weight-input:focus {
+            outline: none;
+            border-color: #4ecdc4;
+            box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
+        }
+        
+        .queue-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            font-size: 13px;
+        }
+        
+        .remove-queue {
+            background: #ff6b6b;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+        
+        .remove-queue:hover {
+            background: #ff5252;
+            transform: scale(1.1);
+        }
+        
+        .add-queue-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(78, 205, 196, 0.1);
+            border-radius: 8px;
+            border: 2px dashed rgba(78, 205, 196, 0.3);
+        }
+        
+        .add-queue-input {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 150px;
+        }
+        
+        .add-queue-input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .btn {
+            border: 2px solid;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px;
+            background: transparent;
+        }
+        
+        .btn-primary {
+            background: #4ecdc4;
+            border-color: #4ecdc4;
+        }
+        
+        .btn-primary:hover {
+            background: #44a08d;
+            border-color: #44a08d;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            border-color: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+            border-color: #c0392b;
+            transform: translateY(-2px);
+        }
+        
+        .bucket-legend {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .legend-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .test-results {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .angle-marker {
+            position: absolute;
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-<div class="container">
-<h1>Consistent Hash Ring</h1>
-<p class="subtitle">Consistent Hash Ring Distribution</p>
-
-<div class="controls">
-    <button class="control-btn active" onclick="showExampleWithHash('example.com', this)">example.com</button>
-    <button class="control-btn" onclick="showExampleWithHash('shop.store', this)">shop.store</button>
-    <button class="control-btn" onclick="showExampleWithHash('my-site.net', this)">my-site.net</button>
-    <button class="control-btn" onclick="showExampleWithHash('store.co', this)">store.co</button>
-    <button class="control-btn" onclick="showExampleWithHash('api.service', this)">api.service</button>
-    <button class="control-btn" onclick="showExampleWithHash('cdn.assets', this)">cdn.assets</button>
-    <button class="control-btn" onclick="showExampleWithHash('blog.site', this)">blog.site</button>
-    <button class="control-btn" onclick="showExampleWithHash('app.mobile', this)">app.mobile</button>
-    <button class="control-btn" onclick="showExampleWithHash('web.app', this)">web.app</button>
-    <button class="control-btn" onclick="showExampleWithHash('cloud.storage', this)">cloud.storage</button>
-    <button class="control-btn" onclick="showExampleWithHash('data.analytics', this)">data.analytics</button>
-    <button class="control-btn" onclick="showExampleWithHash('user.portal', this)">user.portal</button>
-    <button class="control-btn" onclick="showExampleWithHash('admin.panel', this)">admin.panel</button>
-    <button class="control-btn" onclick="showExampleWithHash('payment.gateway', this)">payment.gateway</button>
-    <button class="control-btn" onclick="showExampleWithHash('mail.server', this)">mail.server</button>
-    <button class="control-btn" onclick="showExampleWithHash('video.stream', this)">video.stream</button>
-    <button class="control-btn" onclick="showExampleWithHash('game.server', this)">game.server</button>
-    <button class="control-btn" onclick="showExampleWithHash('iot.device', this)">iot.device</button>
-    <button class="control-btn" onclick="showExampleWithHash('metrics.collector', this)">metrics.collector</button>
-    <button class="control-btn" onclick="showExampleWithHash('cache.redis', this)">cache.redis</button>
-    <button class="control-btn" onclick="hideExample(this)">Clear</button>
-</div>
-
-<div class="ring-container">
-    <div class="ring" id="ring">
-        <div class="center-info">
-            <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">Hash Ring</div>
-            <div style="font-size: 12px;">
-                <span id="nodeCount">Virtual Nodes</span><br>
-                <span id="currentSelection">Click domain above</span>
+    <div class="container">
+        <h1>RabbitMQ Consistent Hash Exchange</h1>
+        <p class="subtitle">Visual Learning Tool - Bucket-based Distribution</p>
+        
+        <div class="algorithm-info">
+            <h4>🐰 Understanding RabbitMQ's Consistent Hash Exchange:</h4>
+            <ul>
+                <li><strong>Buckets:</strong> The hash ring is divided into a fixed number of buckets (points on the ring)</li>
+                <li><strong>Weight:</strong> Determines how many buckets each queue gets (50/50 = equal distribution)</li>
+                <li><strong>Routing:</strong> hash(routing_key) % total_buckets → finds the bucket → routes to owning queue</li>
+                <li><strong>Example:</strong> With 20 buckets and weights 50/50, each queue gets 10 buckets</li>
+                <li><strong>Production:</strong> RabbitMQ uses 1,048,573 buckets for near-perfect distribution</li>
+            </ul>
+        </div>
+        
+        <div class="controls" id="domainButtons"></div>
+        
+        <div class="ring-container">
+            <div class="ring" id="ring">
+                <div class="center-info">
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Hash Ring</div>
+                    <div style="font-size: 14px;">
+                        <span id="bucketCount">0 Buckets</span><br>
+                        <span id="currentSelection" style="font-size: 12px; margin-top: 5px; display: block;">Click routing key above</span>
+                    </div>
+                </div>
+                
+                <div class="angle-marker" style="top: 5px; left: 50%; transform: translateX(-50%);">0°</div>
+                <div class="angle-marker" style="right: 5px; top: 50%; transform: translateY(-50%);">90°</div>
+                <div class="angle-marker" style="bottom: 5px; left: 50%; transform: translateX(-50%);">180°</div>
+                <div class="angle-marker" style="left: 5px; top: 50%; transform: translateY(-50%);">270°</div>
             </div>
         </div>
         
-        <div class="angle-marker" style="top: -20px; left: 50%; transform: translateX(-50%);">0°</div>
-        <div class="angle-marker" style="right: -20px; top: 50%; transform: translateY(-50%);">90°</div>
-        <div class="angle-marker" style="bottom: -20px; left: 50%; transform: translateX(-50%);">180°</div>
-        <div class="angle-marker" style="left: -20px; top: 50%; transform: translateY(-50%);">270°</div>
-    </div>
-</div>
-
-<div class="distribution-controls">
-    <h3 style="margin-top: 0; text-align: center;">Queue Configuration</h3>
-    
-    <div class="queues-container" id="queuesContainer"></div>
-    
-    <div class="add-queue-row">
-        <span style="font-weight: bold; color: #4ecdc4;">Add Queue:</span>
-        <input type="text" class="add-queue-input" id="newQueueName" placeholder="queue.name">
-        <input type="number" class="weight-input" id="newQueueWeight" placeholder="50" min="1" max="1000">
-        <button class="btn btn-primary" onclick="addQueue()">+ Add</button>
-    </div>
-    
-    <div style="text-align: center;">
-        <button class="btn btn-primary" onclick="updateAll()">Apply Changes</button>
-        <button class="btn btn-danger" onclick="resetAll()">Reset All</button>
-        <button class="btn btn-primary" onclick="testDistribution()">Test Distribution</button>
-    </div>
-    
-    <div class="distribution-info" id="distributionInfo"></div>
-    <div id="testResults" style="margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; display: none;">
-        <h4 style="margin-top: 0;">Distribution Test Results</h4>
-        <div id="testResultsContent"></div>
-    </div>
-</div>
-
-<div class="config-info">
-    <h3 style="margin-top: 0;">Current Configuration:</h3>
-    <div style="font-family: monospace; font-size: 12px;" id="configOutput"></div>
-</div>
-</div>
-
-<script>
-// Предопределенные цвета для очередей
-var colors = ['#ff6b6b', '#4ecdc4', '#f39c12', '#9b59b6', '#e74c3c', '#16a085', '#2ecc71', '#3498db', '#e67e22', '#34495e'];
-
-// Начальные очереди
-var queues = [
-    { name: 'domain.queue.1', weight: 50, color: colors[0] },
-    { name: 'domain.queue.2', weight: 50, color: colors[1] }
-];
-
-var nodes = [];
-var currentHashPosition = null;
-var currentLabel = null;
-
-// Стабильная хэш-функция (FNV-1a)
-function stableHash(str) {
-    var hash = 2166136261; // FNV offset basis
-    for (var i = 0; i < str.length; i++) {
-        hash ^= str.charCodeAt(i);
-        hash = (hash * 16777619) >>> 0; // FNV prime
-    }
-    return hash;
-}
-
-// Альтернативная хэш-функция для лучшего распределения (DJB2)
-function djb2Hash(str) {
-    var hash = 5381;
-    for (var i = 0; i < str.length; i++) {
-        hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
-    }
-    return hash;
-}
-
-// Еще одна хэш-функция (SDBM)
-function sdbmHash(str) {
-    var hash = 0;
-    for (var i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + (hash << 6) + (hash << 16) - hash;
-    }
-    return Math.abs(hash);
-}
-
-function addQueue() {
-    var nameInput = document.getElementById('newQueueName');
-    var weightInput = document.getElementById('newQueueWeight');
-    var name = nameInput.value.trim() || ('domain.queue.' + (queues.length + 1));
-    var weight = parseInt(weightInput.value) || 50;
-    
-    // Выбираем цвет для новой очереди
-    var colorIndex = queues.length % colors.length;
-    
-    queues.push({
-        name: name,
-        weight: Math.min(Math.max(weight, 1), 1000),
-        color: colors[colorIndex]
-    });
-    
-    nameInput.value = '';
-    weightInput.value = '';
-    updateAll();
-}
-
-function resetAll() {
-    queues = [
-        { name: 'domain.queue.1', weight: 50, color: colors[0] },
-        { name: 'domain.queue.2', weight: 50, color: colors[1] }
-    ];
-    document.getElementById('newQueueName').value = '';
-    document.getElementById('newQueueWeight').value = '';
-    clearExample();
-    updateAll();
-}
-
-function createNodes() {
-    var nodesList = [];
-    var radius = 180;
-    var centerX = 180;
-    var centerY = 180;
-    
-    for (var queueIndex = 0; queueIndex < queues.length; queueIndex++) {
-        var queue = queues[queueIndex];
-        for (var i = 0; i < queue.weight; i++) {
-            // Используем более разнообразный идентификатор для лучшего распределения
-            // Добавляем "соль" для каждой виртуальной ноды
-            var salt = (i * 2654435761) >>> 0; // Простое число для лучшего распределения
-            var nodeId = queue.name + ':replica:' + salt + ':vnode:' + i;
-            var hash = stableHash(nodeId);
-            // Преобразуем хэш в угол 0-359
-            var angle = hash % 360;
+        <div class="distribution-controls">
+            <div class="bucket-count-control">
+                <h4 style="margin: 0 0 10px 0; color: #4ecdc4;">📊 Total Buckets Configuration:</h4>
+                <div>
+                    <input type="range" class="bucket-slider" id="bucketSlider" min="4" max="60" value="20" step="2">
+                    <div style="margin-top: 10px;">
+                        <strong>Total Buckets: <span id="bucketValue" style="color: #4ecdc4; font-size: 18px;">20</span></strong>
+                        <br>
+                        <small style="color: rgba(255,255,255,0.7);">
+                            Each circle on the ring represents one bucket. Production uses 1M+ buckets.
+                        </small>
+                    </div>
+                </div>
+            </div>
             
-            var angleRad = (angle - 90) * Math.PI / 180;
-            var x = centerX + radius * Math.cos(angleRad);
-            var y = centerY + radius * Math.sin(angleRad);
+            <h3 style="margin-top: 20px; margin-bottom: 10px;">⚖️ Queue Weights (Relative Distribution):</h3>
             
-            nodesList.push({
-                angle: angle,
-                x: x,
-                y: y,
-                queueIndex: queueIndex,
-                queueName: queue.name,
-                color: queue.color,
-                virtualNodeIndex: i,
-                nodeId: nodeId
-            });
-        }
-    }
-    
-    nodesList.sort(function(a, b) { return a.angle - b.angle; });
-    
-    // Выводим статистику распределения нод
-    console.log('Node distribution:');
-    var angleRanges = [0, 0, 0, 0]; // 4 квадранта
-    nodesList.forEach(function(node) {
-        var quadrant = Math.floor(node.angle / 90);
-        angleRanges[quadrant]++;
-    });
-    console.log('Quadrants:', angleRanges.map(function(count, i) {
-        return 'Q' + (i+1) + ': ' + count;
-    }).join(', '));
-    
-    return nodesList;
-}
+            <div class="queues-container" id="queuesContainer"></div>
+            
+            <div class="bucket-legend" id="bucketLegend"></div>
+            
+            <div class="add-queue-row">
+                <span style="font-weight: bold; color: #4ecdc4;">Add Queue:</span>
+                <input type="text" class="add-queue-input" id="newQueueName" placeholder="queue.name">
+                <label>Weight:</label>
+                <input type="number" class="weight-input" id="newQueueWeight" placeholder="50" min="1" max="1000" value="50">
+                <button class="btn btn-primary" id="addQueueBtn">+ Add Queue</button>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-primary" id="applyBtn">Apply Changes</button>
+                <button class="btn btn-danger" id="resetBtn">Reset All</button>
+                <button class="btn btn-primary" id="testBtn">Test Distribution</button>
+            </div>
+            
+            <div class="test-results" id="testResults">
+                <h4 style="margin-top: 0;">Distribution Test Results</h4>
+                <div id="testResultsContent"></div>
+            </div>
+        </div>
+    </div>
 
-function renderQueues() {
-    var container = document.getElementById('queuesContainer');
-    container.innerHTML = '';
-    
-    for (var i = 0; i < queues.length; i++) {
-        var queue = queues[i];
-        var row = document.createElement('div');
-        row.className = 'queue-row';
-        
-        row.innerHTML = 
-            '<div class="queue-color" style="background: ' + queue.color + ';"></div>' +
-            '<div class="queue-name">' + queue.name + '</div>' +
-            '<input type="number" class="weight-input" value="' + queue.weight + '" min="1" max="1000" onchange="updateQueueWeight(' + i + ', this.value)">' +
-            '<div class="queue-percent" id="percent-' + i + '"></div>' +
-            (queues.length > 1 ? '<button class="remove-queue" onclick="removeQueue(' + i + ')">×</button>' : '');
-        
-        container.appendChild(row);
-    }
-}
-
-function updateQueueWeight(index, value) {
-    var weight = parseInt(value) || 1;
-    queues[index].weight = Math.min(Math.max(weight, 1), 1000);
-}
-
-function removeQueue(index) {
-    if (queues.length > 1) {
-        queues.splice(index, 1);
-        // Переназначаем цвета после удаления
-        for (var i = 0; i < queues.length; i++) {
-            queues[i].color = colors[i % colors.length];
-        }
-        updateAll();
-    }
-}
-
-function updateNodesDisplay() {
-    var ring = document.getElementById('ring');
-    
-    // Удаляем все старые ноды
-    var existingNodes = ring.querySelectorAll('.virtual-node');
-    existingNodes.forEach(function(node) {
-        node.remove();
-    });
-    
-    // Создаем новые ноды
-    nodes.forEach(function(node) {
-        var nodeEl = document.createElement('div');
-        nodeEl.className = 'virtual-node';
-        nodeEl.style.left = node.x + 'px';
-        nodeEl.style.top = node.y + 'px';
-        nodeEl.style.background = node.color;
-        nodeEl.style.borderColor = node.color + 'dd';
-        nodeEl.style.boxShadow = '0 0 6px ' + node.color + '80';
-        nodeEl.title = node.queueName + ' - Virtual Node #' + node.virtualNodeIndex + ' at ' + node.angle.toFixed(1) + '°';
-        nodeEl.setAttribute('data-angle', node.angle);
-        nodeEl.setAttribute('data-queue-name', node.queueName);
-        ring.appendChild(nodeEl);
-    });
-    
-    console.log('Rendered ' + nodes.length + ' nodes');
-}
-
-function updateInfo() {
-    var totalWeight = 0;
-    queues.forEach(function(queue) {
-        totalWeight += queue.weight;
-    });
-    
-    // Обновляем счетчик в центре
-    document.getElementById('nodeCount').textContent = totalWeight + ' Virtual Nodes';
-    
-    // Анализируем чередование нод
-    var alternations = 0;
-    for (var i = 1; i < nodes.length; i++) {
-        if (nodes[i].queueIndex !== nodes[i-1].queueIndex) {
-            alternations++;
-        }
-    }
-    var alternationQuality = (alternations / (nodes.length - 1) * 100).toFixed(1);
-    
-    // Обновляем проценты и информацию о распределении
-    var distributionHTML = '';
-    queues.forEach(function(queue, index) {
-        var percent = (queue.weight / totalWeight * 100).toFixed(1);
-        var percentEl = document.getElementById('percent-' + index);
-        if (percentEl) {
-            percentEl.textContent = percent + '%';
-        }
-        distributionHTML += '<div class="percentage" style="background: ' + queue.color + '30; border-color: ' + queue.color + ';">' + 
-                           queue.name + ': ' + percent + '%</div>';
-    });
-    
-    distributionHTML += '<div style="color: rgba(255,255,255,0.8); padding: 4px 8px;">Total Nodes: ' + totalWeight + '</div>';
-    distributionHTML += '<div style="color: ' + (alternationQuality > 40 ? '#2ecc71' : '#e74c3c') + '; padding: 4px 8px; font-size: 11px;">Node Alternation: ' + alternationQuality + '% (higher is better)</div>';
-    document.getElementById('distributionInfo').innerHTML = distributionHTML;
-    
-    // Обновляем конфигурацию
-    var configHTML = '';
-    queues.forEach(function(queue, index) {
-        configHTML += '<div style="color: ' + queue.color + ';"><strong>Queue ' + (index + 1) + ':</strong> ' + 
-                     queue.name + ' (weight: ' + queue.weight + ')</div>';
-    });
-    configHTML += '<br><div style="color: #ffff00;">Total: ' + totalWeight + ' virtual nodes across ' + queues.length + ' queues</div>';
-    configHTML += '<br><div style="color: #4ecdc4; font-size: 11px;">✓ Consistent hashing: nodes maintain stable positions</div>';
-    
-    // Добавляем предупреждение если чередование плохое
-    if (alternationQuality < 30) {
-        configHTML += '<div style="color: #e74c3c; font-size: 11px; margin-top: 5px;">⚠ Poor node alternation detected! Nodes are clustered.</div>';
-    }
-    
-    document.getElementById('configOutput').innerHTML = configHTML;
-}
-
-function updateAll() {
-    // Сохраняем старые позиции для проверки
-    var oldPositions = {};
-    nodes.forEach(function(node) {
-        oldPositions[node.nodeId] = node.angle;
-    });
-    
-    // Создаем новые ноды
-    nodes = createNodes();
-    
-    // Проверяем стабильность позиций
-    var changes = 0;
-    nodes.forEach(function(node) {
-        if (oldPositions[node.nodeId] !== undefined && oldPositions[node.nodeId] !== node.angle) {
-            changes++;
-            console.warn('Node position changed:', node.nodeId, 'from', oldPositions[node.nodeId], 'to', node.angle);
-        }
-    });
-    
-    if (changes > 0) {
-        console.error('WARNING: ' + changes + ' nodes changed position!');
-    }
-    
-    renderQueues();
-    updateNodesDisplay();
-    updateInfo();
-}
-
-function clearExample() {
-    if (currentHashPosition) {
-        currentHashPosition.remove();
-        currentHashPosition = null;
-    }
-    if (currentLabel) {
-        currentLabel.remove();
-        currentLabel = null;
-    }
-    
-    document.querySelectorAll('.virtual-node').forEach(function(node) {
-        node.style.transform = '';
-        node.style.zIndex = '';
-    });
-    
-    document.getElementById('currentSelection').innerHTML = 'Click domain above';
-    
-    document.querySelectorAll('.control-btn').forEach(function(btn) {
-        btn.classList.remove('active');
-        btn.style.background = '';
-        btn.style.borderColor = '';
-        btn.style.boxShadow = '';
-    });
-}
-
-function findResponsibleNode(hashAngle) {
-    if (nodes.length === 0) return null;
-    
-    // Ищем первую ноду с углом >= hashAngle
-    for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i].angle >= hashAngle) {
-            return nodes[i];
-        }
-    }
-    
-    // Если не нашли ноду впереди, возвращаем первую (wrap-around)
-    // Это правильное поведение для consistent hash ring
-    return nodes[0];
-}
-
-function showExampleWithHash(domain, clickedElement) {
-    // Вычисляем хэш для домена и преобразуем в угол
-    var hash = stableHash(domain);
-    var angle = hash % 360;
-    showExample(domain, angle, clickedElement);
-}
-
-function showExample(domain, hashAngle, clickedElement) {
-    clearExample();
-    
-    var closestNode = findResponsibleNode(hashAngle);
-    
-    if (!closestNode) return;
-    
-    var radius = 180;
-    var centerX = 180;
-    var centerY = 180;
-    var angleRad = (hashAngle - 90) * Math.PI / 180;
-    var domainX = centerX + radius * Math.cos(angleRad);
-    var domainY = centerY + radius * Math.sin(angleRad);
-    
-    // Добавляем маркер позиции хэша
-    var hashEl = document.createElement('div');
-    hashEl.className = 'hash-position';
-    hashEl.style.left = domainX + 'px';
-    hashEl.style.top = domainY + 'px';
-    hashEl.style.background = closestNode.color;
-    hashEl.style.boxShadow = '0 0 15px ' + closestNode.color + 'cc';
-    document.getElementById('ring').appendChild(hashEl);
-    currentHashPosition = hashEl;
-    
-    // Добавляем метку
-    var labelEl = document.createElement('div');
-    labelEl.className = 'hash-label';
-    labelEl.textContent = domain;
-    
-    // Определяем позицию метки в зависимости от угла
-    var labelOffset = 25;
-    var labelX = centerX + (radius + labelOffset) * Math.cos(angleRad);
-    var labelY = centerY + (radius + labelOffset) * Math.sin(angleRad);
-    
-    labelEl.style.left = labelX + 'px';
-    labelEl.style.top = labelY + 'px';
-    labelEl.style.transform = 'translate(-50%, -50%)';
-    labelEl.style.background = 'rgba(0,0,0,0.9)';
-    labelEl.style.color = closestNode.color;
-    labelEl.style.borderColor = closestNode.color;
-    document.getElementById('ring').appendChild(labelEl);
-    currentLabel = labelEl;
-    
-    // Обновляем информацию
-    document.getElementById('currentSelection').innerHTML = 
-        '<strong>' + domain + '</strong><br>' +
-        '→ ' + closestNode.queueName + '<br>' + 
-        'Hash: ' + hashAngle + '°<br>' +
-        'Node: ' + closestNode.angle.toFixed(1) + '°';
-    
-    // Подсвечиваем целевую ноду
-    var targetNode = document.querySelector('[data-angle="' + closestNode.angle + '"]');
-    if (targetNode) {
-        targetNode.style.transform = 'scale(1.8)';
-        targetNode.style.zIndex = '150';
-    }
-    
-    // Стилизуем кнопку
-    if (clickedElement) {
-        document.querySelectorAll('.control-btn').forEach(function(btn) {
-            btn.classList.remove('active');
-            btn.style.background = '';
-            btn.style.borderColor = '';
-            btn.style.boxShadow = '';
-        });
-        clickedElement.classList.add('active');
-        clickedElement.style.background = closestNode.color;
-        clickedElement.style.borderColor = closestNode.color;
-        clickedElement.style.boxShadow = '0 0 15px ' + closestNode.color + '66';
-    }
-}
-
-function testDistribution() {
-    // Тестируем распределение для множества случайных ключей
-    var testCount = 10000;
-    var distribution = {};
-    
-    // Инициализируем счетчики
-    queues.forEach(function(queue) {
-        distribution[queue.name] = 0;
-    });
-    
-    // Также тестируем реальные домены
-    var realDomains = [
-        'example.com', 'shop.store', 'my-site.net', 'store.co', 
-        'api.service', 'cdn.assets', 'blog.site', 'app.mobile',
-        'web.app', 'cloud.storage', 'data.analytics', 'user.portal',
-        'admin.panel', 'payment.gateway', 'mail.server', 'video.stream',
-        'game.server', 'iot.device', 'metrics.collector', 'cache.redis'
-    ];
-    
-    var domainDistribution = {};
-    queues.forEach(function(queue) {
-        domainDistribution[queue.name] = [];
-    });
-    
-    // Тестируем реальные домены
-    realDomains.forEach(function(domain) {
-        var hash = stableHash(domain);
-        var angle = hash % 360;
-        
-        var responsibleNode = findResponsibleNode(angle);
-        
-        if (responsibleNode) {
-            domainDistribution[responsibleNode.queueName].push(domain);
-        }
-    });
-    
-    // Генерируем случайные ключи для статистики
-    for (var i = 0; i < testCount; i++) {
-        var testKey = 'test-key-' + Math.random().toString(36).substring(7);
-        var hash = stableHash(testKey);
-        var angle = hash % 360;
-        
-        var responsibleNode = findResponsibleNode(angle);
-        
-        if (responsibleNode) {
-            distribution[responsibleNode.queueName]++;
-        }
-    }
-    
-    // Анализируем покрытие кольца
-    var coverage = analyzeCoverage();
-    
-    // Отображаем результаты
-    var resultsHTML = '<div style="display: grid; gap: 15px;">';
-    
-    // Статистика по случайным ключам
-    resultsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 6px;">';
-    resultsHTML += '<h5 style="margin-top: 0; color: #4ecdc4;">Random Keys Distribution (' + testCount + ' keys)</h5>';
-    
-    var totalWeight = 0;
-    queues.forEach(function(queue) {
-        totalWeight += queue.weight;
-    });
-    
-    queues.forEach(function(queue) {
-        var count = distribution[queue.name];
-        var actualPercent = (count / testCount * 100).toFixed(2);
-        var expectedPercent = (queue.weight / totalWeight * 100).toFixed(2);
-        var deviation = (actualPercent - expectedPercent).toFixed(2);
-        var deviationColor = Math.abs(deviation) < 5 ? '#2ecc71' : (Math.abs(deviation) < 10 ? '#f39c12' : '#e74c3c');
-        
-        resultsHTML += '<div style="margin: 5px 0;">';
-        resultsHTML += '<span style="color: ' + queue.color + '; font-weight: bold;">' + queue.name + ':</span> ';
-        resultsHTML += count + ' keys (' + actualPercent + '%) ';
-        resultsHTML += '<span style="color: ' + deviationColor + ';">Expected: ' + expectedPercent + '% (';
-        resultsHTML += (deviation > 0 ? '+' : '') + deviation + '%)</span>';
-        resultsHTML += '</div>';
-    });
-    resultsHTML += '</div>';
-    
-    // Распределение реальных доменов
-    resultsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 6px;">';
-    resultsHTML += '<h5 style="margin-top: 0; color: #4ecdc4;">Sample Domains Distribution</h5>';
-    
-    queues.forEach(function(queue) {
-        var domains = domainDistribution[queue.name];
-        var percent = (domains.length / realDomains.length * 100).toFixed(1);
-        resultsHTML += '<div style="margin: 8px 0;">';
-        resultsHTML += '<div style="color: ' + queue.color + '; font-weight: bold;">' + queue.name + ' (' + domains.length + ' domains, ' + percent + '%):</div>';
-        resultsHTML += '<div style="font-size: 11px; margin-left: 10px; color: rgba(255,255,255,0.7);">';
-        resultsHTML += domains.join(', ') || 'none';
-        resultsHTML += '</div></div>';
-    });
-    resultsHTML += '</div>';
-    
-    // Анализ покрытия кольца
-    resultsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 6px;">';
-    resultsHTML += '<h5 style="margin-top: 0; color: #4ecdc4;">Ring Coverage Analysis</h5>';
-    
-    // Анализируем сегменты между нодами
-    var segments = [];
-    for (var i = 0; i < nodes.length; i++) {
-        var currentNode = nodes[i];
-        var nextNode = nodes[(i + 1) % nodes.length];
-        var segmentSize = nextNode.angle - currentNode.angle;
-        if (segmentSize < 0) segmentSize += 360;
-        
-        segments.push({
-            queue: currentNode.queueName,
-            size: segmentSize,
-            startAngle: currentNode.angle,
-            endAngle: nextNode.angle
-        });
-    }
-    
-    // Суммируем покрытие для каждой очереди
-    var queueCoverage = {};
-    queues.forEach(function(queue) {
-        queueCoverage[queue.name] = {
-            totalSize: 0,
-            segments: 0,
-            largestSegment: 0,
-            smallestSegment: 360
-        };
-    });
-    
-    segments.forEach(function(segment) {
-        var coverage = queueCoverage[segment.queue];
-        coverage.totalSize += segment.size;
-        coverage.segments++;
-        if (segment.size > coverage.largestSegment) {
-            coverage.largestSegment = segment.size;
-        }
-        if (segment.size < coverage.smallestSegment) {
-            coverage.smallestSegment = segment.size;
-        }
-    });
-    
-    queues.forEach(function(queue) {
-        var coverage = queueCoverage[queue.name];
-        var coveragePercent = (coverage.totalSize / 360 * 100).toFixed(1);
-        resultsHTML += '<div style="margin: 5px 0;">';
-        resultsHTML += '<span style="color: ' + queue.color + '; font-weight: bold;">' + queue.name + ':</span> ';
-        resultsHTML += 'Controls ' + coveragePercent + '% of ring ';
-        resultsHTML += '(' + coverage.segments + ' segments, ';
-        resultsHTML += 'largest: ' + coverage.largestSegment.toFixed(1) + '°, ';
-        resultsHTML += 'smallest: ' + coverage.smallestSegment.toFixed(1) + '°)';
-        resultsHTML += '</div>';
-    });
-    
-    resultsHTML += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 11px; color: rgba(255,255,255,0.7);">';
-    resultsHTML += '<strong>Note:</strong> For better distribution, increase virtual nodes (e.g., 150-200 per queue)';
-    resultsHTML += '</div>';
-    
-    resultsHTML += '</div>';
-    
-    resultsHTML += '</div>';
-    
-    document.getElementById('testResultsContent').innerHTML = resultsHTML;
-    document.getElementById('testResults').style.display = 'block';
-}
-
-// Инициализация
-updateAll();
-
-// Тестирование стабильности хэш-функции
-console.log('Testing hash stability:');
-['test1', 'test2', 'test3'].forEach(function(str) {
-    var hash1 = stableHash(str);
-    var hash2 = stableHash(str);
-    console.log(str + ': ' + (hash1 === hash2 ? 'STABLE' : 'UNSTABLE'));
-});
-
-// Показываем первый пример
-setTimeout(function() {
-    var firstButton = document.querySelector('.control-btn');
-    if (firstButton) {
-        showExampleWithHash('example.com', firstButton);
-    }
-}, 500);
-</script>
+    <script>
+        (function() {
+            'use strict';
+            
+            // Global configuration
+            window.TOTAL_BUCKETS = 20;
+            window.colors = ['#ff6b6b', '#4ecdc4', '#f39c12', '#9b59b6', '#e74c3c', '#16a085', '#2ecc71', '#3498db', '#e67e22', '#34495e'];
+            window.queues = [];
+            window.buckets = [];
+            window.currentHashPosition = null;
+            window.currentLabel = null;
+            window.currentLine = null;
+            
+            window.routingKeys = [
+                'order.created', 'payment.processed', 'user.login', 'item.shipped', 
+                'email.sent', 'notification.push', 'cache.invalidate', 'session.start',
+                'api.request', 'error.logged', 'metric.recorded', 'backup.completed',
+                'file.uploaded', 'task.queued', 'webhook.received', 'report.generated'
+            ];
+            
+            // Initialize queues
+            window.initQueues = function() {
+                window.queues = [
+                    { name: 'queue.orders', weight: 50, color: window.colors[0] },
+                    { name: 'queue.notifications', weight: 50, color: window.colors[1] }
+                ];
+            };
+            
+            // MurmurHash3
+            window.murmurHash3 = function(key) {
+                var remainder = key.length & 3;
+                var bytes = key.length - remainder;
+                var h1 = 0;
+                var c1 = 0xcc9e2d51;
+                var c2 = 0x1b873593;
+                var i = 0;
+                
+                while (i < bytes) {
+                    var k1 = 
+                        ((key.charCodeAt(i) & 0xff)) |
+                        ((key.charCodeAt(++i) & 0xff) << 8) |
+                        ((key.charCodeAt(++i) & 0xff) << 16) |
+                        ((key.charCodeAt(++i) & 0xff) << 24);
+                    ++i;
+                    
+                    k1 = ((k1 * c1) & 0xffffffff);
+                    k1 = (k1 << 15) | (k1 >>> 17);
+                    k1 = ((k1 * c2) & 0xffffffff);
+                    
+                    h1 ^= k1;
+                    h1 = (h1 << 13) | (h1 >>> 19);
+                    h1 = ((h1 * 5 + 0xe6546b64) & 0xffffffff);
+                }
+                
+                h1 ^= key.length;
+                h1 ^= h1 >>> 16;
+                h1 = (h1 * 0x85ebca6b) & 0xffffffff;
+                h1 ^= h1 >>> 13;
+                h1 = (h1 * 0xc2b2ae35) & 0xffffffff;
+                h1 ^= h1 >>> 16;
+                
+                return h1 >>> 0;
+            };
+            
+            // Build bucket allocation with better distribution
+            window.buildBuckets = function() {
+                window.buckets = new Array(window.TOTAL_BUCKETS);
+                
+                if (window.queues.length === 0) return;
+                
+                var totalWeight = 0;
+                window.queues.forEach(function(queue) {
+                    totalWeight += queue.weight;
+                });
+                
+                if (totalWeight === 0) return;
+                
+                // Calculate how many buckets each queue should get
+                var queueBuckets = [];
+                var totalAssigned = 0;
+                
+                window.queues.forEach(function(queue, index) {
+                    var count = Math.floor((queue.weight / totalWeight) * window.TOTAL_BUCKETS);
+                    queueBuckets.push({
+                        queueIndex: index,
+                        queue: queue,
+                        targetCount: count,
+                        assigned: 0
+                    });
+                    totalAssigned += count;
+                });
+                
+                // Distribute remaining buckets to queues with highest fractional parts
+                var remaining = window.TOTAL_BUCKETS - totalAssigned;
+                if (remaining > 0) {
+                    var fractionals = window.queues.map(function(queue, index) {
+                        var exact = (queue.weight / totalWeight) * window.TOTAL_BUCKETS;
+                        var floor = Math.floor(exact);
+                        return {
+                            index: index,
+                            fractional: exact - floor
+                        };
+                    });
+                    
+                    fractionals.sort(function(a, b) { return b.fractional - a.fractional; });
+                    
+                    for (var i = 0; i < remaining && i < fractionals.length; i++) {
+                        queueBuckets[fractionals[i].index].targetCount++;
+                    }
+                }
+                
+                // METHOD 1: Interleaved distribution (better for visualization)
+                // This distributes buckets in a round-robin fashion for better visual distribution
+                var queuePointers = queueBuckets.map(function() { return 0; });
+                
+                for (var i = 0; i < window.TOTAL_BUCKETS; i++) {
+                    // Find queue that needs more buckets and has the lowest ratio of assigned/target
+                    var selectedQueue = -1;
+                    var lowestRatio = Infinity;
+                    
+                    for (var q = 0; q < queueBuckets.length; q++) {
+                        if (queueBuckets[q].assigned < queueBuckets[q].targetCount) {
+                            var ratio = queueBuckets[q].assigned / queueBuckets[q].targetCount;
+                            if (ratio < lowestRatio) {
+                                lowestRatio = ratio;
+                                selectedQueue = q;
+                            }
+                        }
+                    }
+                    
+                    if (selectedQueue === -1) {
+                        // Fallback: assign to first queue with space
+                        for (var q = 0; q < queueBuckets.length; q++) {
+                            if (queueBuckets[q].assigned < queueBuckets[q].targetCount) {
+                                selectedQueue = q;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If still no queue found, assign to last queue
+                    if (selectedQueue === -1) {
+                        selectedQueue = queueBuckets.length - 1;
+                    }
+                    
+                    var qb = queueBuckets[selectedQueue];
+                    window.buckets[i] = {
+                        queueIndex: qb.queueIndex,
+                        queueName: qb.queue.name,
+                        color: qb.queue.color
+                    };
+                    qb.assigned++;
+                }
+                
+                // METHOD 2: Hash-based distribution (more realistic but less visual)
+                // Uncomment this section and comment out METHOD 1 for production-like behavior
+                /*
+                for (var i = 0; i < window.TOTAL_BUCKETS; i++) {
+                    // Use hash of bucket index to determine which queue owns it
+                    var bucketHash = window.murmurHash3('bucket:' + i + ':salt:' + window.TOTAL_BUCKETS);
+                    var selector = bucketHash % totalWeight;
+                    
+                    var accumulated = 0;
+                    var selectedQueue = window.queues[0];
+                    var selectedIndex = 0;
+                    
+                    for (var q = 0; q < window.queues.length; q++) {
+                        accumulated += window.queues[q].weight;
+                        if (selector < accumulated) {
+                            selectedQueue = window.queues[q];
+                            selectedIndex = q;
+                            break;
+                        }
+                    }
+                    
+                    window.buckets[i] = {
+                        queueIndex: selectedIndex,
+                        queueName: selectedQueue.name,
+                        color: selectedQueue.color
+                    };
+                }
+                */
+                
+                console.log('Bucket distribution complete:', window.buckets);
+            };
+            
+            // Find responsible queue
+            window.findResponsibleQueue = function(routingKey) {
+                if (window.buckets.length === 0) return null;
+                
+                var hash = window.murmurHash3(routingKey);
+                var bucketIndex = hash % window.TOTAL_BUCKETS;
+                
+                return {
+                    bucket: window.buckets[bucketIndex],
+                    bucketIndex: bucketIndex,
+                    hash: hash
+                };
+            };
+            
+            // Visualize buckets
+            window.visualizeBuckets = function() {
+                var ring = document.getElementById('ring');
+                
+                var oldNodes = ring.querySelectorAll('.bucket-node, .hash-line');
+                oldNodes.forEach(function(node) {
+                    node.remove();
+                });
+                
+                for (var i = 0; i < window.TOTAL_BUCKETS; i++) {
+                    var bucket = window.buckets[i];
+                    if (!bucket) continue;
+                    
+                    var angle = (i / window.TOTAL_BUCKETS) * 360;
+                    var angleRad = (angle - 90) * Math.PI / 180;
+                    var radius = 200;
+                    var centerX = 200;
+                    var centerY = 200;
+                    
+                    var x = centerX + radius * Math.cos(angleRad);
+                    var y = centerY + radius * Math.sin(angleRad);
+                    
+                    var node = document.createElement('div');
+                    node.className = 'bucket-node';
+                    node.style.left = x + 'px';
+                    node.style.top = y + 'px';
+                    node.style.background = bucket.color;
+                    node.style.borderColor = 'white';
+                    node.title = 'Bucket ' + i + ' → ' + bucket.queueName;
+                    
+                    if (window.TOTAL_BUCKETS <= 30) {
+                        node.textContent = i;
+                    }
+                    
+                    ring.appendChild(node);
+                }
+                
+                document.getElementById('bucketCount').textContent = window.TOTAL_BUCKETS + ' Buckets';
+                window.updateLegend();
+            };
+            
+            // Update legend
+            window.updateLegend = function() {
+                var legend = document.getElementById('bucketLegend');
+                legend.innerHTML = '';
+                
+                var bucketCounts = {};
+                window.queues.forEach(function(queue) {
+                    bucketCounts[queue.name] = 0;
+                });
+                
+                window.buckets.forEach(function(bucket) {
+                    if (bucket) {
+                        bucketCounts[bucket.queueName]++;
+                    }
+                });
+                
+                window.queues.forEach(function(queue) {
+                    var item = document.createElement('div');
+                    item.className = 'legend-item';
+                    item.innerHTML = '<div class="legend-dot" style="background: ' + queue.color + ';"></div>' +
+                                    '<span>' + queue.name + ': ' + bucketCounts[queue.name] + ' buckets (' + 
+                                    ((bucketCounts[queue.name] / window.TOTAL_BUCKETS * 100).toFixed(1)) + '%)</span>';
+                    legend.appendChild(item);
+                });
+            };
+            
+            // Render buttons
+            window.renderButtons = function() {
+                var container = document.getElementById('domainButtons');
+                container.innerHTML = '';
+                
+                window.routingKeys.forEach(function(key) {
+                    var btn = document.createElement('button');
+                    btn.className = 'control-btn';
+                    btn.textContent = key;
+                    btn.addEventListener('click', function() { window.showExample(key, btn); });
+                    container.appendChild(btn);
+                });
+                
+                var clearBtn = document.createElement('button');
+                clearBtn.className = 'control-btn';
+                clearBtn.textContent = 'Clear';
+                clearBtn.addEventListener('click', function() { window.clearExample(); });
+                container.appendChild(clearBtn);
+            };
+            
+            // Show example
+            window.showExample = function(routingKey, clickedElement) {
+                window.clearExample();
+                
+                var result = window.findResponsibleQueue(routingKey);
+                if (!result || !result.bucket) return;
+                
+                var angle = (result.bucketIndex / window.TOTAL_BUCKETS) * 360;
+                var angleRad = (angle - 90) * Math.PI / 180;
+                var radius = 200;
+                var centerX = 200;
+                var centerY = 200;
+                
+                var x = centerX + radius * Math.cos(angleRad);
+                var y = centerY + radius * Math.sin(angleRad);
+                
+                var line = document.createElement('div');
+                line.className = 'hash-line';
+                line.style.height = radius + 'px';
+                line.style.left = (centerX - 1) + 'px';
+                line.style.top = centerY + 'px';
+                line.style.transform = 'rotate(' + angle + 'deg)';
+                line.style.transformOrigin = 'top center';
+                document.getElementById('ring').appendChild(line);
+                window.currentLine = line;
+                
+                var hashEl = document.createElement('div');
+                hashEl.className = 'hash-position';
+                hashEl.style.left = x + 'px';
+                hashEl.style.top = y + 'px';
+                hashEl.style.background = result.bucket.color;
+                hashEl.style.boxShadow = '0 0 20px ' + result.bucket.color;
+                document.getElementById('ring').appendChild(hashEl);
+                window.currentHashPosition = hashEl;
+                
+                var labelEl = document.createElement('div');
+                labelEl.className = 'hash-label';
+                labelEl.textContent = routingKey;
+                
+                var labelOffset = 45;
+                var labelX = centerX + (radius + labelOffset) * Math.cos(angleRad);
+                var labelY = centerY + (radius + labelOffset) * Math.sin(angleRad);
+                
+                labelEl.style.left = labelX + 'px';
+                labelEl.style.top = labelY + 'px';
+                labelEl.style.transform = 'translate(-50%, -50%)';
+                labelEl.style.color = result.bucket.color;
+                labelEl.style.borderColor = result.bucket.color;
+                document.getElementById('ring').appendChild(labelEl);
+                window.currentLabel = labelEl;
+                
+                document.getElementById('currentSelection').innerHTML = 
+                    '<strong style="font-size: 14px;">' + routingKey + '</strong><br>' +
+                    '<span style="color: ' + result.bucket.color + ';">→ ' + result.bucket.queueName + '</span><br>' + 
+                    '<small>Hash: ' + result.hash + '<br>' +
+                    result.hash + ' % ' + window.TOTAL_BUCKETS + ' = Bucket ' + result.bucketIndex + '</small>';
+                
+                var targetNode = document.querySelectorAll('.bucket-node')[result.bucketIndex];
+                if (targetNode) {
+                    targetNode.style.transform = 'scale(2)';
+                    targetNode.style.zIndex = '150';
+                    targetNode.style.border = '3px solid white';
+                }
+                
+                if (clickedElement) {
+                    document.querySelectorAll('.control-btn').forEach(function(btn) {
+                        btn.classList.remove('active');
+                        btn.style.background = '';
+                        btn.style.borderColor = '';
+                    });
+                    clickedElement.classList.add('active');
+                    clickedElement.style.background = result.bucket.color;
+                    clickedElement.style.borderColor = result.bucket.color;
+                }
+            };
+            
+            // Clear example
+            window.clearExample = function() {
+                if (window.currentHashPosition) {
+                    window.currentHashPosition.remove();
+                    window.currentHashPosition = null;
+                }
+                if (window.currentLabel) {
+                    window.currentLabel.remove();
+                    window.currentLabel = null;
+                }
+                if (window.currentLine) {
+                    window.currentLine.remove();
+                    window.currentLine = null;
+                }
+                
+                document.getElementById('currentSelection').innerHTML = 'Click routing key above';
+                
+                document.querySelectorAll('.control-btn').forEach(function(btn) {
+                    btn.classList.remove('active');
+                    btn.style.background = '';
+                    btn.style.borderColor = '';
+                });
+                
+                document.querySelectorAll('.bucket-node').forEach(function(node) {
+                    node.style.transform = '';
+                    node.style.zIndex = '10';
+                    node.style.border = '2px solid white';
+                });
+            };
+            
+            // Render queues
+            window.renderQueues = function() {
+                var container = document.getElementById('queuesContainer');
+                container.innerHTML = '';
+                
+                var totalWeight = 0;
+                window.queues.forEach(function(q) { totalWeight += q.weight; });
+                
+                window.queues.forEach(function(queue, i) {
+                    var actualBuckets = window.buckets.filter(function(b) { 
+                        return b && b.queueIndex === i; 
+                    }).length;
+                    
+                    var percent = totalWeight > 0 ? (queue.weight / totalWeight * 100).toFixed(1) : 0;
+                    
+                    var row = document.createElement('div');
+                    row.className = 'queue-row';
+                    row.innerHTML = 
+                        '<div class="queue-color" style="background: ' + queue.color + ';"></div>' +
+                        '<div class="queue-name">' + queue.name + '</div>' +
+                        '<div style="font-size: 12px;">Weight:</div>' +
+                        '<input type="number" class="weight-input weight-input-' + i + '" value="' + queue.weight + '" min="1" max="1000">' +
+                        '<div class="queue-info">' +
+                            '<span style="color: ' + queue.color + ';">' + percent + '% of traffic</span>' +
+                            '<span style="color: rgba(255,255,255,0.7);">→ ' + actualBuckets + ' buckets</span>' +
+                        '</div>' +
+                        (window.queues.length > 1 ? '<button class="remove-queue remove-queue-' + i + '">×</button>' : '');
+                    
+                    container.appendChild(row);
+                });
+                
+                // Add event listeners after DOM update
+                window.queues.forEach(function(queue, i) {
+                    var input = document.querySelector('.weight-input-' + i);
+                    if (input) {
+                        input.addEventListener('change', function() {
+                            window.queues[i].weight = Math.max(1, parseInt(this.value) || 1);
+                        });
+                    }
+                    
+                    var removeBtn = document.querySelector('.remove-queue-' + i);
+                    if (removeBtn) {
+                        removeBtn.addEventListener('click', function() {
+                            window.queues.splice(i, 1);
+                            window.updateAll();
+                        });
+                    }
+                });
+            };
+            
+            // Test distribution
+            window.testDistribution = function() {
+                var testCount = 10000;
+                var distribution = {};
+                
+                window.queues.forEach(function(queue) {
+                    distribution[queue.name] = 0;
+                });
+                
+                for (var i = 0; i < testCount; i++) {
+                    var testKey = 'test-' + Math.random().toString(36).substring(7);
+                    var result = window.findResponsibleQueue(testKey);
+                    if (result && result.bucket) {
+                        distribution[result.bucket.queueName]++;
+                    }
+                }
+                
+                var totalWeight = 0;
+                window.queues.forEach(function(queue) {
+                    totalWeight += queue.weight;
+                });
+                
+                var resultsHTML = '<div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 6px;">';
+                resultsHTML += '<h5 style="margin-top: 0; color: #4ecdc4;">Distribution Test (' + testCount + ' random keys)</h5>';
+                
+                window.queues.forEach(function(queue) {
+                    var count = distribution[queue.name] || 0;
+                    var actualPercent = (count / testCount * 100).toFixed(2);
+                    var expectedPercent = totalWeight > 0 ? (queue.weight / totalWeight * 100).toFixed(2) : 0;
+                    var deviation = Math.abs(actualPercent - expectedPercent).toFixed(2);
+                    
+                    resultsHTML += '<div style="margin: 8px 0;">';
+                    resultsHTML += '<span style="color: ' + queue.color + '; font-weight: bold;">' + queue.name + ':</span> ';
+                    resultsHTML += count + ' messages (' + actualPercent + '%) ';
+                    resultsHTML += '<span style="color: ' + (deviation < 5 ? '#2ecc71' : '#f39c12') + ';">Expected: ' + expectedPercent + '% (±' + deviation + '%)</span>';
+                    resultsHTML += '</div>';
+                });
+                
+                resultsHTML += '</div>';
+                
+                document.getElementById('testResultsContent').innerHTML = resultsHTML;
+                document.getElementById('testResults').style.display = 'block';
+            };
+            
+            // Update all
+            window.updateAll = function() {
+                window.buildBuckets();
+                window.visualizeBuckets();
+                window.renderQueues();
+            };
+            
+            // Add queue
+            window.addQueue = function() {
+                var nameInput = document.getElementById('newQueueName');
+                var weightInput = document.getElementById('newQueueWeight');
+                var name = nameInput.value.trim() || ('queue.' + (window.queues.length + 1));
+                var weight = parseInt(weightInput.value) || 50;
+                
+                window.queues.push({
+                    name: name,
+                    weight: Math.max(1, weight),
+                    color: window.colors[window.queues.length % window.colors.length]
+                });
+                
+                nameInput.value = '';
+                weightInput.value = '50';
+                window.updateAll();
+            };
+            
+            // Reset all
+            window.resetAll = function() {
+                window.initQueues();
+                document.getElementById('newQueueName').value = '';
+                document.getElementById('newQueueWeight').value = '50';
+                document.getElementById('bucketSlider').value = '20';
+                document.getElementById('bucketValue').textContent = '20';
+                window.TOTAL_BUCKETS = 20;
+                window.clearExample();
+                window.updateAll();
+            };
+            
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+            
+            function init() {
+                // Bucket slider
+                var slider = document.getElementById('bucketSlider');
+                if (slider) {
+                    slider.addEventListener('input', function() {
+                        window.TOTAL_BUCKETS = parseInt(this.value);
+                        document.getElementById('bucketValue').textContent = window.TOTAL_BUCKETS;
+                        window.updateAll();
+                    });
+                }
+                
+                // Buttons
+                var addBtn = document.getElementById('addQueueBtn');
+                if (addBtn) addBtn.addEventListener('click', window.addQueue);
+                
+                var applyBtn = document.getElementById('applyBtn');
+                if (applyBtn) applyBtn.addEventListener('click', window.updateAll);
+                
+                var resetBtn = document.getElementById('resetBtn');
+                if (resetBtn) resetBtn.addEventListener('click', window.resetAll);
+                
+                var testBtn = document.getElementById('testBtn');
+                if (testBtn) testBtn.addEventListener('click', window.testDistribution);
+                
+                // Initialize
+                window.initQueues();
+                window.renderButtons();
+                window.updateAll();
+                
+                // Show first example
+                setTimeout(function() {
+                    var firstBtn = document.querySelector('.control-btn');
+                    if (firstBtn) {
+                        window.showExample('order.created', firstBtn);
+                    }
+                }, 100);
+            }
+        })();
+    </script>
 </body>
 </html>
